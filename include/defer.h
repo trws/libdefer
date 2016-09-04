@@ -1,6 +1,6 @@
 #ifndef __DEFER_H
 #define __DEFER_H 1
-#include "macros.h"
+#include "defer/macros.h"
 
 typedef struct defer_scope defer_scope_t;
 
