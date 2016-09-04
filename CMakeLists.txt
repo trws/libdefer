@@ -10,6 +10,9 @@ set(CMAKE_C_STANDARD_REQUIRED On)
 include_directories(include)
 
 add_library(defer defer.c)
+target_link_libraries(defer pthread)
+
+add_subdirectory(test)
 
 install(TARGETS defer
         LIBRARY DESTINATION lib

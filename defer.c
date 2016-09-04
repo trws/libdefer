@@ -64,6 +64,10 @@ defer_scope_t* defer_scope_push(defer_scope_t* ds) {
         ds = defer_scope_new();
     defer_scope_t* top = pthread_getspecific(defer_scope_stack);
     ds->parent = top;
+    if (top == NULL) {
+        // Starting from the bottom register thread cleanup on fork
+        pthread_atfork(NULL, NULL, final_cleanup);
+    }
     pthread_setspecific(defer_scope_stack, ds);
     return ds;
 }

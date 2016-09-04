@@ -2,6 +2,8 @@
 #define __DEFER_H 1
 #include "defer_macros.h"
 
+#include <stdint.h>
+
 typedef struct defer_scope defer_scope_t;
 
 typedef void (*deferable_free_like)(void*);
@@ -137,6 +139,18 @@ void defer_scope_pop(defer_scope_t* ds);
  * @param p The user-defined value to pass to the function
  */
 void defer(deferable_free_like fn, void* p);
+
+/**
+ * @brief Defer execution of the free-like function fn, with intptr_t argument
+ * p, until
+ * the nearest enclosing scope is cleared.
+ *
+ * @param fn The free-like function to execute on cleanup
+ * @param p The user-defined value to pass to the function
+ */
+static inline void deferi(deferable_free_like fn, intptr_t p){
+    defer(fn, (void*)p);
+}
 
 /**
  * @brief Defer execution of the void(void) function fn until the
