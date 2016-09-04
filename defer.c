@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 static pthread_key_t defer_scope_stack;
 static pthread_once_t dss_init_once = PTHREAD_ONCE_INIT;
@@ -26,7 +27,7 @@ typedef struct defer {
         deferable_noarg noarg;
     };
     void* data;
-    _Bool arg;
+    bool arg;
 } defer_t;
 
 struct defer_scope {
@@ -52,17 +53,21 @@ static inline void execute_deferred(defer_t* d) {
 }
 
 defer_scope_t* defer_scope_new(void) {
-    defer_scope_t* ds = malloc(sizeof *ds);
+    defer_scope_t* ds = (defer_scope_t*)malloc(sizeof *ds);
     ds->parent = NULL;
     ds->routines = NULL;
     return ds;
+}
+
+static inline defer_scope_t* get_dss() {
+    return (defer_scope_t*)pthread_getspecific(defer_scope_stack);
 }
 
 defer_scope_t* defer_scope_push(defer_scope_t* ds) {
     pthread_once(&dss_init_once, init_dss);
     if (!ds)
         ds = defer_scope_new();
-    defer_scope_t* top = pthread_getspecific(defer_scope_stack);
+    defer_scope_t* top = get_dss();
     ds->parent = top;
     if (top == NULL) {
         // Starting from the bottom register thread cleanup on fork
@@ -73,7 +78,7 @@ defer_scope_t* defer_scope_push(defer_scope_t* ds) {
 }
 
 void defer_scope_pop(defer_scope_t* ds) {
-    defer_scope_t* top = pthread_getspecific(defer_scope_stack);
+    defer_scope_t* top = get_dss();
     assert(top);
     defer_scope_t* until =
         ds ? (ds == (defer_scope_t*)1 ? NULL : ds->parent) : top->parent;
@@ -106,7 +111,7 @@ void defer_scope_auto_init(void) {
 }
 
 static void execute_all_deferred(void* dscope /* defer_scope_t * */) {
-    defer_scope_pop(dscope);
+    defer_scope_pop((defer_scope_t*)dscope);
 }
 
 static void final_cleanup(void) {
@@ -120,14 +125,14 @@ static void defer_append(defer_scope_t* s, defer_t* d) {
 
 void defer_specific(defer_scope_t* ds, deferable_free_like fn, void* p) {
     assert(fn);
-    defer_t* nd = malloc(sizeof *nd);
+    defer_t* nd = (defer_t*)malloc(sizeof *nd);
     *nd = (defer_t){.arg = 1, .fn = fn, .data = p};
     defer_append(ds, nd);
 }
 
 void defer_specific_noarg(defer_scope_t* ds, deferable_noarg fn) {
     assert(fn);
-    defer_t* nd = malloc(sizeof *nd);
+    defer_t* nd = (defer_t*)malloc(sizeof *nd);
     nd->arg = 0;
     nd->noarg = fn;
     nd->data = NULL;
@@ -135,9 +140,9 @@ void defer_specific_noarg(defer_scope_t* ds, deferable_noarg fn) {
 }
 
 void defer(deferable_free_like fn, void* p) {
-    defer_specific(pthread_getspecific(defer_scope_stack), fn, p);
+    defer_specific(get_dss(), fn, p);
 }
 
 void defer_noarg(deferable_noarg fn) {
-    defer_specific_noarg(pthread_getspecific(defer_scope_stack), fn);
+    defer_specific_noarg(get_dss(), fn);
 }
