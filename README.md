@@ -1,6 +1,10 @@
 # libdefer: Go-style defer for C
 
-libdefer replicates much of the functionality of go's `defer` in C99.  When linked in, on supporting platforms, a defer context is automatically created before main is called, and cleaned up after exit or return from main.  Scopes are thread-local, and completely under user control, so you can make the scopes as small or large as you like (even unstructured or un-nested!)
+libdefer replicates much of the functionality of go's `defer` in C99.  When
+linked in, on supporting platforms, a defer context is automatically created
+before main is called, and cleaned up after exit or return from main.  Scopes
+are thread-local, and completely under user control, so you can make the scopes
+as small or large as you like (even unstructured or un-nested!)
 
 ## Build and Install
 
@@ -13,7 +17,10 @@ $ make install
 
 ## Example
 
-One of golang's most iconic features is the `defer` keyword.  Lacking scoped destruction, it's one of the best ways to clean up resources in the face of panics and without having to worry about multiple returns.  A canonical example is closing a pair of files in the face of error handling:
+One of golang's most iconic features is the `defer` keyword.  Lacking scoped
+destruction, it's one of the best ways to clean up resources in the face of
+panics and without having to worry about multiple returns.  A canonical example
+is closing a pair of files in the face of error handling:
 
 ```golang
 // Example courtesy of https://blog.golang.org/defer-panic-and-recover
@@ -78,7 +85,10 @@ int64_t copy_file(const char *dst_name, const char *src_name) {
 }
 ```
 
-Now, the close is closer to the open, and handled regardless of exit.  That said, we still have the issue of easy mistakes.  Every return has been replaced with a cleanup macro, this is not really what we're after.  This is why libdefer also provides function definition wrapper macros:
+Now, the close is closer to the open, and handled regardless of exit.  That
+said, we still have the issue of easy mistakes.  Every return has been replaced
+with a cleanup macro, this is not really what we're after.  This is why
+libdefer also provides function definition wrapper macros:
 
 ```c
 #include <defer.h>
@@ -98,11 +108,34 @@ DEFER_SCOPED(int64_t, copy_file, (const char *, dst_name, const char, *src_name)
 }
 ```
 
-The definition line is a little longer, but the body is now completely surrounded by a guaranteed defer block that actually does a little more work than the one in the previous version.  With a decent compiler, the extra static inline function generated here will optimize away, but either way the function gets its cleanup without visible handling in the body.  Also, the signature of the function *has not changed*, the prototype in headers can remain the same, just the definition needs the macro treatment.
+The definition line is a little longer, but the body is now completely
+surrounded by a guaranteed defer block that actually does a little more work
+than the one in the previous version.  With a decent compiler, the extra static
+inline function generated here will optimize away, but either way the function
+gets its cleanup without visible handling in the body.  Also, the signature of
+the function *has not changed*, the prototype in headers can remain the same,
+just the definition needs the macro treatment.
+
+## Licensing
+
+libdefer is released under a permissive MIT license. Essentially, you may do
+with it what you will, but include the copyright, and if it breaks something of
+yours into two pieces, you're welcome to keep both pieces.  See the LICENSE
+file for more details.
 
 ## Limitations
 
-* A scope is not auto-created with new threads, the easiest way to deal with this is to wrap the entry function in a `DEFER_SCOPED` macro
-* Only functions with no arguments or a single pointer sized argument can be deferred at this time, if you have a good reason to defer functions that don't look like `free`, feel free to post an issue 
-* The library is currently un-optimized, and is not cost free.  Each defer entails a `malloc` and a `free` on cleanup, this will likely be fixed, but be aware
-* Use of `setjmp` and `longjmp` for ad-hoc exceptions is actually supported, but does not execute all defers during unwinding like C++ would, rather all of the scope creation functions return a handle for that scope, allowing the code around the setjmp to get a handle that can clean up all scopes below that context.  Using the handles is a good way to protect against unmatched push/pop pairs in inner scopes as well.
+* A scope is not auto-created with new threads, the easiest way to deal with
+this is to wrap the entry function in a `DEFER_SCOPED` macro
+* Only functions with no arguments or a single pointer sized argument can be
+deferred at this time, if you have a good reason to defer functions that don't
+look like `free`, feel free to post an issue 
+* The library is currently un-optimized, and is not cost free.  Each defer
+entails a `malloc` and a `free` on cleanup, this will likely be fixed, but be
+aware
+* Use of `setjmp` and `longjmp` for ad-hoc exceptions is actually supported,
+but does not execute all defers during unwinding like C++ would, rather all of
+the scope creation functions return a handle for that scope, allowing the code
+around the setjmp to get a handle that can clean up all scopes below that
+context.  Using the handles is a good way to protect against unmatched push/pop
+pairs in inner scopes as well.
