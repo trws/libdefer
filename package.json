@@ -5,5 +5,5 @@
     "description": "go-style defer goodness for C",
     "keywords": ["defer", "goland", "convenience"],
     "license": "MIT",
-    "src": ["defer.c", "include/defer.h", "include/defer/macros.h"]
+    "src": ["defer.c", "include/defer.h", "include/defer_macros.h"]
 }
