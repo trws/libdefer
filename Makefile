@@ -1,6 +1,11 @@
-LDFLAGS:=-lpthread
+CC:=gcc
+LDFLAGS:=
+LDLIBS:=-lpthread
 
-all: defer
+all: test_scoped
+
+test_scoped: test_scoped.o defer.o 
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 clean:
 	rm -f *.o defer
