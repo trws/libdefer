@@ -1,0 +1,9 @@
+{
+    "name": "libdefer",
+    "version": "0.0.1",
+    "repo": "trws/libdefer",
+    "description": "go-style defer goodness for C",
+    "keywords": ["defer", "goland", "convenience"],
+    "license": "MIT",
+    "src": ["defer.c", "include/defer.h", "include/defer/macros.h"]
+}
