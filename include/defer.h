@@ -4,7 +4,11 @@
 
 #include <stdint.h>
 
-typedef struct defer_scope defer_scope_t;
+typedef struct defer defer_t;
+typedef struct defer_scope {
+    struct defer_scope* parent;
+    defer_t* routines;
+} defer_scope_t;
 
 typedef void (*deferable_free_like)(void*);
 typedef void (*deferable_noarg)(void);
@@ -22,20 +26,20 @@ defer_scope_t* defer_scope_begin(void);
  */
 void defer_scope_end(void);
 
-/** 
+/**
  * @brief Create a wrapper function that creates a defer scope around the
  * function being defined, only use for void return functions.
- * 
+ *
  * @param NAME function name to define
  * @param ARG_LIST argument list, types and names, all separated by commas,
  * see example
- * 
+ *
  * The main advantage to using one of the wrapper macros to define
  * defer-scoped functions is that however you leave the function so wrapped,
  * the defers will run.  No calls or return macros are required inside the
  * function when it is defined this way. The only exception to this is using
  * setjmp/longjmp, that must be handled by use of pop to clean up all scopes
- * back to a known point around the setjmp point. 
+ * back to a known point around the setjmp point.
  *
  * Use like this:
  * DEFER_SCOPED_VOID(test_fn, (int, a, char *, b)) {
@@ -56,15 +60,15 @@ void defer_scope_end(void);
     }                                                             \
     static inline void __defer_inner##NAME __DEFER_ARGS ARG_LIST
 
-/** 
+/**
  * @brief Create a wrapper function that creates a defer scope around the
  * function being defined, only use for non-void return functions.
- * 
+ *
  * @param RET return type of the function to be defined
  * @param NAME function name to define
  * @param ARG_LIST argument list, types and names, all separated by commas,
  * see example
- * 
+ *
  */
 #define DEFER_SCOPED(RET, NAME, ARG_LIST)                        \
     static inline RET __defer_inner##NAME __DEFER_ARGS ARG_LIST; \
@@ -75,6 +79,39 @@ void defer_scope_end(void);
         return r;                                                \
     }                                                            \
     static inline RET __defer_inner##NAME __DEFER_ARGS ARG_LIST
+
+/**
+ * @brief DEFER_SCOPED using stack memory for the defer_scope structure, this
+ * saves some allocation overhead, but is only safe when longjmp and similar
+ * are impossible in the contained function
+ *
+ * @param RET return type of the function to be defined
+ * @param NAME function name to define
+ * @param ARG_LIST argument list, types and names, all separated by commas,
+ * see example
+ *
+ * @return function's return value
+ */
+#define DSNE(RET, NAME, ARG_LIST)                                \
+    static inline RET __defer_inner##NAME __DEFER_ARGS ARG_LIST; \
+    RET NAME __DEFER_ARGS ARG_LIST {                             \
+        defer_scope_t ds[1];                                     \
+        defer_scope_push(ds);                                    \
+        RET r = __defer_inner##NAME __DEFER_CALL ARG_LIST;       \
+        defer_scope_pop(ds);                                     \
+        return r;                                                \
+    }                                                            \
+    static inline RET __defer_inner##NAME __DEFER_ARGS ARG_LIST
+
+#define DSNEV(NAME, ARG_LIST)                                     \
+    static inline void __defer_inner##NAME __DEFER_ARGS ARG_LIST; \
+    void NAME __DEFER_ARGS ARG_LIST {                             \
+        defer_scope_t ds[1];                                      \
+        defer_scope_push(ds);                                     \
+        __defer_inner##NAME __DEFER_CALL ARG_LIST;                \
+        defer_scope_pop(ds);                                      \
+    }                                                             \
+    static inline void __defer_inner##NAME __DEFER_ARGS ARG_LIST
 
 /**
  * @brief Convenience macro to pop the scope and return
@@ -148,7 +185,7 @@ void defer(deferable_free_like fn, void* p);
  * @param fn The free-like function to execute on cleanup
  * @param p The user-defined value to pass to the function
  */
-static inline void deferi(deferable_free_like fn, intptr_t p){
+static inline void deferi(deferable_free_like fn, intptr_t p) {
     defer(fn, (void*)p);
 }
 
@@ -221,11 +258,12 @@ void defer_specific_noarg(defer_scope_t* ds, deferable_noarg fn);
 
 #define __DEFER_ARGS_INNER(T1, V1, ...) T1 V1 FOR_PAIRS(AS_ARGS, __VA_ARGS__)
 
-#define __DEFER_ARGS(...) (IFNEMPTY(__VA_ARGS__)(__DEFER_ARGS_INNER(__VA_ARGS__)))
+#define __DEFER_ARGS(...) \
+    (IFNEMPTY(__VA_ARGS__)(__DEFER_ARGS_INNER(__VA_ARGS__)))
 
 #define __DEFER_CALL_INNER(T1, V1, ...) V1 FOR_PAIRS(AS_ARG_NAMES, __VA_ARGS__)
 
-#define __DEFER_CALL(...)                                                 \
-        (IFNEMPTY(__VA_ARGS__)(__DEFER_CALL_INNER(__VA_ARGS__)))
+#define __DEFER_CALL(...) \
+    (IFNEMPTY(__VA_ARGS__)(__DEFER_CALL_INNER(__VA_ARGS__)))
 
 #endif
